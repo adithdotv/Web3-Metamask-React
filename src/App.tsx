@@ -7,6 +7,11 @@ function App() {
   const [provider, setProvider] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
   const [latestBlock, setLatestBlock] = useState<string | null>(null);
+  const [accountButtonDisabled, setAccountButtonDisabled] = useState<boolean>(false);
+  const [accounts, setAccounts] = useState<string[] | null>(null);
+  const [connectedAccount, setConnectedAccount] = useState<string | null>(null);
+  const [messageToSign, setMessageToSign] = useState<string | null>(null);
+  const [signingResult, setSigningResult] = useState<string | null>(null);
 
   useEffect(() => {
     // ensure that there is an injected the Ethereum provider
@@ -22,6 +27,7 @@ function App() {
     } else {
       // no Ethereum provider - instruct user to install MetaMask
       setWarning("Please install MetaMask");
+      setAccountButtonDisabled(true)
     }
   }, []);
 
@@ -55,6 +61,39 @@ function App() {
   }, [web3])
 
 
+   // click event for "Request MetaMask Accounts" button
+   async function requestAccounts() {
+    if (web3 === null) {
+      return;
+    }
+
+    // request accounts from MetaMask
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    document.getElementById("requestAccounts")?.remove();
+
+    // get list of accounts
+    const allAccounts = await web3.eth.getAccounts();
+    setAccounts(allAccounts);
+    // get the first account and populate placeholder
+    setConnectedAccount(`Account: ${allAccounts[0]}`);
+  }
+
+  // click event for "Sign Message" button
+  async function signMessage() {
+    if (web3 === null || accounts === null || messageToSign === null) {
+      return;
+    }
+
+    // sign message with first MetaMask account
+    const signature = await web3.eth.personal.sign(
+      messageToSign,
+      accounts[0],
+      "",
+    );
+
+    setSigningResult(signature);
+  }
+
   return (
     <>
       <div id="warn" style={{ color: "red" }}>
@@ -63,6 +102,34 @@ function App() {
       <div id="provider">{provider}</div>
       <div id="chainId">{chainId}</div>
       <div id="latestBlock">{latestBlock}</div>
+      <div id="connectedAccount">{connectedAccount}</div>
+      <div>
+        <button
+          onClick={() => requestAccounts()}
+          id="requestAccounts"
+          disabled={accountButtonDisabled}
+        >
+          Request MetaMask Accounts
+        </button>
+      </div>
+      <div>
+        <input
+          onChange={(e) => {
+            setMessageToSign(e.target.value);
+          }}
+          id="messageToSign"
+          placeholder="Message to Sign"
+          disabled={connectedAccount === null}
+        />
+        <button
+          onClick={() => signMessage()}
+          id="signMessage"
+          disabled={connectedAccount === null}
+        >
+          Sign Message
+        </button>
+        <div id="signingResult">{signingResult}</div>
+      </div>
     </>
   );
 }
